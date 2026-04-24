@@ -1,14 +1,14 @@
-# ExamSync: Biometric-Blockchain Integrated Exam Integrity System 🌿🛡️
+# ExamSync: Biometric-Blockchain Integrated Exam Integrity System 
 
 ### Presented for: Software Exhibition 2026
 **Babu Banarasi Das (BBD) University, Lucknow**
 
 ---
 
-## 🏆 Project Overview
+##  Project Overview
 **ExamSync** is a cutting-edge security framework designed to eliminate identity fraud (spoofing/impersonation) in high-stakes academic examinations. By merging **Advanced AI Computer Vision** with **Ethereum Blockchain Technology**, the system creates a tamper-proof digital audit trail for every student entry.
 
-## 🚀 Key Features
+##  Key Features
 
 ### 1. Dual-Phase Biometrics (RetinaFace AI)
 - **Active Liveness Detection**: Prevents 2D photo/video replay attacks using randomized motion challenges (Blink, Turn, Smile).
@@ -39,7 +39,7 @@
 
 ---
 
-## 📖 Installation & Setup
+##  Installation & Setup
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/Jai45-star/ExamConfigration-System.git
@@ -56,9 +56,9 @@
 
 ---
 
-## 📜 Dev Team & Acknowledgements
-Developed with passion for **BBD University, Lucknow**.  
+##  Dev Team & Acknowledgements
+Developed with passion for **Babu Banarsi Das University, Lucknow**.  
 This project demonstrates the synergy between Decentralized Finance (DeFi) technology and Educational Integrity.
 
-**Author**: Jai Raj & Team  
-**Institution**: BBD University, Lucknow
+**Author**: Jai Raj & Mayank Kumar Singh 
+**Institution**: Babu Banarsi Das University, Lucknow
