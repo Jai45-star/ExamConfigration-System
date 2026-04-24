@@ -1,0 +1,29 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables (SENSITIVE)
+.env
+
+# RSA Keys (SENSITIVE)
+keys/
+*.pem
+
+# Databases
+*.db
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Project specific
+ai_engine/models/
+ai_engine/weights/
+.gemini/
+scratch/
+
+# OS files
+.DS_Store
+Thumbs.db

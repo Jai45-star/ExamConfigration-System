@@ -1,0 +1,86 @@
+/* index.css — Natural & Professional Design System */
+:root {
+    --primary: #4a6741;          /* Sage Forest Green */
+    --primary-light: #6b8a5d;
+    --primary-dark: #354a2d;
+    --accent: #8b5e3c;           /* Warm Oak Brown */
+    --accent-light: #a67c52;
+    --bg-base: #faf9f6;          /* Soft Cream Beige */
+    --card-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(139, 94, 60, 0.15); /* Soft brown tint border */
+    --text-main: #2d2621;        /* Espresso Charcoal */
+    --text-dim: #7c726a;         /* Muted Taupe */
+    --success: #606c38;
+    --error: #bc6c25;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background: var(--bg-base);
+    color: var(--text-main);
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(74, 103, 65, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(139, 94, 60, 0.04) 0%, transparent 40%);
+    min-height: 100vh;
+}
+
+.premium-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(15px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: 0 15px 35px -10px rgba(45, 38, 33, 0.08);
+    transition: all 0.4s ease;
+}
+
+.premium-card:hover {
+    box-shadow: 0 20px 45px -12px rgba(45, 38, 33, 0.12);
+    border-color: var(--primary-light);
+}
+
+.btn-premium {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    border: none;
+    color: #fff;
+    font-weight: 600;
+    padding: 12px 28px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 8px 20px -5px rgba(74, 103, 65, 0.3);
+}
+
+.btn-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px -5px rgba(74, 103, 65, 0.4);
+}
+
+.input-premium {
+    background: #fff;
+    border: 1px solid var(--glass-border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--text-main);
+    font-family: 'Outfit', sans-serif;
+    outline: none;
+    transition: all 0.3s;
+}
+
+.input-premium:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(74, 103, 65, 0.08);
+}
+
+/* Natural Scan Animation */
+@keyframes scan {
+    0% { top: 5%; opacity: 0; }
+    50% { opacity: 0.6; }
+    100% { top: 95%; opacity: 0; }
+}

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamSync | Secure Entry Terminal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <style>
+        .container { max-width: 1050px; margin: 0 auto; padding: 3rem 2rem; position: relative; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem; }
+        .logo { font-size: 1.8rem; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+        .main-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 2rem; align-items: start; }
+
+        /* Camera Box */
+        .terminal-box { position: relative; aspect-ratio: 4/3; background: #2d2621; border-radius: 30px; overflow: hidden; border: 4px solid #fff; box-shadow: 0 30px 60px -15px rgba(45, 38, 33, 0.15); }
+        #webcam { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+        .scan-overlay { position: absolute; inset: 0; pointer-events: none; }
+        .scan-line { position: absolute; left: 5%; right: 5%; height: 2px; background: var(--primary-light); box-shadow: 0 0 15px rgba(107, 138, 93, 0.5); animation: scan 4s ease-in-out infinite; }
+        .status-pill { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.9); padding: 8px 16px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 8px; color: var(--text-main); }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); animation: pulse 2s infinite; }
+
+        /* Challenge Overlay — covers camera during challenge phase */
+        #challenge-overlay {
+            position: absolute; inset: 0;
+            background: rgba(18, 24, 18, 0.82);
+            backdrop-filter: blur(2px);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 1rem; z-index: 10;
+            opacity: 0; pointer-events: none;
+            transition: opacity 0.35s ease;
+        }
+        #challenge-overlay.active { opacity: 1; pointer-events: all; }
+        .challenge-icon { font-size: 3.2rem; }
+        .challenge-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.1rem; font-weight: 700;
+            color: #fff; text-align: center;
+            padding: 0 1.5rem; line-height: 1.5;
+        }
+        .challenge-timer-ring {
+            width: 56px; height: 56px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: var(--primary-light, #8aad6e);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Motion bar underneath camera */
+        #motion-bar-wrap {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            height: 5px; background: rgba(255,255,255,0.1);
+            display: none;
+        }
+        #motion-bar {
+            height: 100%; width: 0%; background: var(--primary-light, #8aad6e);
+            transition: width 0.15s ease;
+        }
+
+        /* Form UI */
+        .details-panel { padding: 3rem; display: flex; flex-direction: column; gap: 2rem; }
+        .section-title { font-size: 1.8rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.5px; }
+        .section-desc { color: var(--text-dim); font-size: 0.95rem; line-height: 1.6; }
+
+        .pipeline-steps { display: flex; flex-direction: column; gap: 12px; }
+        .step { display: flex; align-items: center; gap: 15px; font-size: 0.85rem; color: var(--text-dim); padding: 12px 16px; border-radius: 14px; background: rgba(255,255,255,0.5); border: 1px solid transparent; transition: all 0.3s; }
+        .step.active { background: #fff; border-color: var(--primary-light); color: var(--primary-dark); font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
+        .step.done { background: rgba(74, 103, 65, 0.05); color: var(--primary); }
+        .step-num { width: 22px; height: 22px; border-radius: 60%; background: #eee; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.7rem; }
+        .step.active .step-num { background: var(--primary); color: white; }
+
+        /* Modals */
+        .modal { position: fixed; inset: 0; background: rgba(45, 38, 33, 0.4); backdrop-filter: blur(8px); z-index: 1000; display: flex; align-items: center; justify-content: center; opacity:0; pointer-events: none; transition: opacity 0.4s; }
+        .modal.open { opacity: 1; pointer-events: all; }
+        .modal-content { max-width: 440px; width: 90%; text-align: center; padding: 3.5rem; background: #fff; border-radius: 40px; }
+        .modal-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 1.8rem; }
+
+        @media (max-width: 850px) { 
+            .main-grid { grid-template-columns: 1fr; gap: 1.5rem; } 
+            .container { padding: 1rem 0.75rem; }
+            header { margin-bottom: 1.5rem; }
+            .details-panel { 
+                padding: 1.5rem 1rem; 
+                display: flex; 
+                flex-direction: column;
+            }
+            
+            /* Order for Mobile: Title -> Camera -> Button -> Inputs -> Steps */
+            .details-panel { order: 2; }
+            .terminal-box { order: 1; aspect-ratio: 3/4; border-radius: 20px; border-width: 2px; }
+            
+            #btn-verify { order: -1; margin-bottom: 1.5rem; } /* Button moves to the top of details panel */
+
+            .terminal-box { margin-bottom: 0.5rem; }
+        }
+        @media (max-width: 500px) {
+            .section-title { font-size: 1.4rem; }
+            .logo { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo">🌿 <span>ExamSync</span></div>
+    </header>
+
+    <div class="main-grid">
+        <!-- Camera Terminal -->
+        <div class="terminal-box">
+            <video id="webcam" autoplay playsinline muted></video>
+            <div class="scan-overlay">
+                <div class="scan-line"></div>
+            </div>
+            <div class="status-pill">
+                <div class="pulse-dot"></div>
+                System Active
+            </div>
+            <button id="btn-switch-cam" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.9); border: none; padding: 8px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; z-index: 20;">🔄 Switch</button>
+
+            <!-- Active Liveness Challenge Overlay -->
+            <div id="challenge-overlay">
+                <div class="challenge-icon" id="challenge-icon">😐</div>
+                <div class="challenge-text" id="challenge-text">Preparing security check...</div>
+                <div class="challenge-timer-ring"></div>
+            </div>
+
+            <!-- Motion detection progress bar -->
+            <div id="motion-bar-wrap">
+                <div id="motion-bar"></div>
+            </div>
+        </div>
+
+        <!-- Verification Panel -->
+        <div class="premium-card details-panel">
+            <div style="text-align: center;">
+                <h2 class="section-title">Identity Authorization</h2>
+                <p class="section-desc">Authorize your session via secure biometric validation.</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1.2rem;">
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="font-size: 0.7rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Student Roll ID</label>
+                    <input type="text" id="roll-number" class="input-premium" placeholder="e.g. CS-2024-001">
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                    <label style="font-size: 0.7rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px;">Scheduled Session Code</label>
+                    <input type="text" id="exam-id" class="input-premium" placeholder="e.g. FINALS-MAY">
+                </div>
+            </div>
+
+            <div class="pipeline-steps">
+                <div class="step" id="step-1"><div class="step-num">1</div> Liveness Challenge</div>
+                <div class="step" id="step-2"><div class="step-num">2</div> Motion Verification</div>
+                <div class="step" id="step-3"><div class="step-num">3</div> Biometric Identity Match</div>
+                <div class="step" id="step-4"><div class="step-num">4</div> Certified Entry Logging</div>
+            </div>
+
+            <button class="btn-premium" id="btn-verify" style="padding: 18px;">
+                <span id="btn-text">Authenticate Credentials</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal" id="modal-success">
+    <div class="modal-content" style="box-shadow: 0 40px 100px rgba(0,0,0,0.15);">
+        <div class="modal-icon">✓</div>
+        <h2 style="font-size: 1.8rem; margin-bottom: 0.8rem; color: var(--primary-dark);">Entry Authorized</h2>
+        <p style="color: var(--text-dim); margin-bottom: 2rem; font-size: 0.95rem;">Successfully recorded on the secure ledger.</p>
+        <div style="background: var(--bg-base); border-radius: 20px; padding: 1.5rem; text-align: left; margin-bottom: 2rem; border: 1px solid var(--glass-border);">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 600;">STATUS</span>
+                <span style="font-size: 0.75rem; color: var(--primary); font-weight: 800;">VERIFIED</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 600;">NAME</span>
+                <span id="res-name" style="font-size: 0.75rem; color: var(--text-main); font-weight: 800;">...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 600;">ROLL ID</span>
+                <span id="res-roll" style="font-size: 0.75rem; color: var(--text-main); font-weight: 800;">...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 600;">EXAM CODE</span>
+                <span id="res-exam" style="font-size: 0.75rem; color: var(--text-main); font-weight: 800;">...</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 600;">LEDGER HASH</span>
+                <span id="res-tx" style="font-size: 0.75rem; font-family: monospace; color: var(--accent);">...</span>
+            </div>
+        </div>
+        <button class="btn-premium" style="width: 100%;" onclick="location.reload()">Proceed to Exam</button>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal" id="modal-error">
+    <div class="modal-content">
+        <h2 style="color: var(--error); margin-bottom: 1rem;">Validation Failed</h2>
+        <p id="error-message" style="color: var(--text-dim); margin-bottom: 2.5rem; font-size: 0.95rem;">Identity could not be confirmed.</p>
+        <button class="btn-premium" style="width: 100%; background: var(--text-main);" onclick="location.reload()">Retry Session</button>
+    </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+//  CONFIG
+// ─────────────────────────────────────────────
+const API = 'https://indirect-proforeign-rochell.ngrok-free.dev/api';
+
+// Motion threshold: 0–1 scale.
+// A static photo/screen will score near 0; a real person performing
+// the challenge will score above this value.
+const MOTION_THRESHOLD = 0.018;   // ~1.8% pixel change required
+
+// Challenge definitions
+const CHALLENGES = [
+    { icon: '👀', text: 'Slowly look to your LEFT, then back to center', key: 'look_left' },
+    { icon: '👀', text: 'Slowly look to your RIGHT, then back to center', key: 'look_right' },
+    { icon: '😊', text: 'Give a natural SMILE for a moment', key: 'smile' },
+    { icon: '😌', text: 'Slowly BLINK twice, clearly and deliberately', key: 'blink' },
+    { icon: '🤔', text: 'Raise your EYEBROWS briefly, then relax', key: 'eyebrows' },
+];
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let isProcessing = false;
+
+// ─────────────────────────────────────────────
+//  CAMERA INIT
+// ─────────────────────────────────────────────
+let currentFacingMode = 'user';
+let currentStream = null;
+
+async function startCamera() {
+    if(currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+    }
+    try {
+        const constraints = {
+            video: { 
+                width: { ideal: 640 }, height: { ideal: 480 }, 
+                facingMode: currentFacingMode 
+            }
+        };
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById('webcam');
+        video.srcObject = currentStream;
+        
+        // Mirror only for front camera
+        video.style.transform = (currentFacingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
+    } catch(e) {
+        console.error('Camera access required:', e);
+    }
+}
+startCamera();
+
+document.getElementById('btn-switch-cam').addEventListener('click', () => {
+    currentFacingMode = (currentFacingMode === 'user') ? 'environment' : 'user';
+    startCamera();
+});
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function setStep(n, state) {
+    const el = document.getElementById(`step-${n}`);
+    if(el) el.className = `step ${state}`;
+}
+
+function captureFrameB64(video) {
+    const canvas = document.createElement('canvas');
+    const w = video.videoWidth  || 640;
+    const h = video.videoHeight || 480;
+    canvas.width  = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    
+    // Sync canvas mirroring with video style
+    if (video.style.transform.includes('scaleX(-1)')) {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+    }
+    
+    ctx.drawImage(video, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
+}
+
+/**
+ * Compute pixel-level motion between two base64 JPEG frames.
+ * Returns a 0–1 score: 0 = identical (static), 1 = completely different.
+ */
+function computeMotionScore(b64_before, b64_after) {
+    return new Promise((resolve) => {
+        const getPixels = (b64) => new Promise((res) => {
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = 80; c.height = 60;   // Small size is enough & fast
+                c.getContext('2d').drawImage(img, 0, 0, 80, 60);
+                res(c.getContext('2d').getImageData(0, 0, 80, 60).data);
+            };
+            img.src = 'data:image/jpeg;base64,' + b64;
+        });
+
+        Promise.all([getPixels(b64_before), getPixels(b64_after)]).then(([px1, px2]) => {
+            let totalDiff = 0;
+            const len = px1.length;
+            for(let i = 0; i < len; i += 4) {
+                // Only luminance channel (fast)
+                const lum1 = 0.299*px1[i] + 0.587*px1[i+1] + 0.114*px1[i+2];
+                const lum2 = 0.299*px2[i] + 0.587*px2[i+1] + 0.114*px2[i+2];
+                totalDiff += Math.abs(lum1 - lum2) / 255;
+            }
+            resolve(totalDiff / (len / 4));
+        });
+    });
+}
+
+/**
+ * Active Liveness Challenge:
+ * 1. Show a random challenge prompt on screen.
+ * 2. Capture a "before" frame immediately.
+ * 3. Wait ~2.5 seconds for the user to perform the action.
+ * 4. Capture an "after" frame.
+ * 5. Measure pixel motion between the two frames.
+ * 6. If motion < MOTION_THRESHOLD → reject (static image / photo on screen).
+ * Returns: { passed: bool, finalFrame: b64, motionScore: float }
+ */
+async function runLivenessChallenge() {
+    const video = document.getElementById('webcam');
+    const overlay = document.getElementById('challenge-overlay');
+    const challengeIcon = document.getElementById('challenge-icon');
+    const challengeText = document.getElementById('challenge-text');
+    const motionBarWrap = document.getElementById('motion-bar-wrap');
+    const motionBar = document.getElementById('motion-bar');
+
+    // Pick a random challenge
+    const challenge = CHALLENGES[Math.floor(Math.random() * CHALLENGES.length)];
+
+    // Show overlay
+    challengeIcon.textContent = challenge.icon;
+    challengeText.textContent = challenge.text;
+    overlay.classList.add('active');
+    motionBarWrap.style.display = 'block';
+    motionBar.style.width = '0%';
+
+    // Capture frame BEFORE the challenge
+    const frameBefore = captureFrameB64(video);
+
+    // Wait for user to perform action
+    await new Promise(r => setTimeout(r, 2800));
+
+    // Show 'STABILIZE' message briefly
+    challengeText.textContent = "Hold still for verification...";
+    await new Promise(r => setTimeout(r, 600));
+
+    // Capture frame AFTER the challenge (for verification)
+    const frameAfter = captureFrameB64(video);
+
+    // Hide overlay
+    overlay.classList.remove('active');
+    motionBarWrap.style.display = 'none';
+
+    // Measure motion
+    const motionScore = await computeMotionScore(frameBefore, frameAfter);
+    // Visualize briefly (optional debug)
+    motionBar.style.width = `${Math.min(100, motionScore * 2000)}%`;
+
+    console.log(`[LIVENESS] Challenge: ${challenge.key}, Motion Score: ${motionScore.toFixed(5)}, Threshold: ${MOTION_THRESHOLD}`);
+
+    return {
+        passed: motionScore >= MOTION_THRESHOLD,
+        finalFrame: frameAfter,   // Use the "after" frame for face recognition
+        motionScore
+    };
+}
+
+// ─────────────────────────────────────────────
+//  MAIN VERIFY FLOW
+// ─────────────────────────────────────────────
+document.getElementById('btn-verify').addEventListener('click', async () => {
+    if(isProcessing) return;
+
+    const roll = document.getElementById('roll-number').value.trim();
+    const exam = document.getElementById('exam-id').value.trim();
+    if(!roll || !exam) {
+        document.getElementById('error-message').textContent = 'Please enter your Roll ID and Session Code.';
+        document.getElementById('modal-error').classList.add('open');
+        return;
+    }
+
+    isProcessing = true;
+    document.getElementById('btn-verify').disabled = true;
+    document.getElementById('btn-text').textContent = 'Running Security Check...';
+    setStep(1, 'active');
+
+    try {
+        // ── STEP 1: Active Liveness Challenge ──────────────────
+        const liveness = await runLivenessChallenge();
+
+        if(!liveness.passed) {
+            // REJECT: No motion = photo/screen attack
+            console.warn(`[LIVENESS] REJECTED — Motion score too low: ${liveness.motionScore.toFixed(5)}`);
+            document.getElementById('error-message').textContent =
+                `Liveness check failed. Please perform the requested action clearly in front of the camera. (Motion: ${(liveness.motionScore * 100).toFixed(1)}%)`;
+            document.getElementById('modal-error').classList.add('open');
+            return;
+        }
+
+        setStep(1, 'done');
+        setStep(2, 'active');
+
+        // ── STEP 2: Send to Backend for Biometric Verification ─
+        document.getElementById('btn-text').textContent = 'Verifying Identity...';
+        setStep(2, 'done');
+        setStep(3, 'active');
+
+        const res = await fetch(`${API}/entry/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                roll_number: roll,
+                exam_id: exam,
+                face_image_b64: liveness.finalFrame,
+                nonce: crypto.randomUUID()
+            })
+        });
+
+        const data = await res.json();
+
+        if(res.ok) {
+            setStep(3, 'done');
+            setStep(4, 'done');
+            document.getElementById('res-name').textContent = data.student_name;
+            document.getElementById('res-roll').textContent = data.roll_number;
+            document.getElementById('res-exam').textContent = exam;
+            document.getElementById('res-tx').textContent =
+                (data.blockchain_tx_hash || 'OFF_CHAIN').substring(0, 20) + '...';
+            document.getElementById('modal-success').classList.add('open');
+        } else {
+            const msg = data.detail?.message || data.detail || 'Access Restricted.';
+            document.getElementById('error-message').textContent = msg;
+            document.getElementById('modal-error').classList.add('open');
+        }
+
+    } catch(err) {
+        console.error('Network error:', err);
+        document.getElementById('error-message').textContent = 'Network error. Please ensure the server is running.';
+        document.getElementById('modal-error').classList.add('open');
+    } finally {
+        isProcessing = false;
+        document.getElementById('btn-verify').disabled = false;
+        document.getElementById('btn-text').textContent = 'Authenticate Credentials';
+        // Reset steps
+        [1,2,3,4].forEach(n => setStep(n, ''));
+    }
+});
+</script>
+
+</body>
+</html>

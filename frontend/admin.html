@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ExamSync | Command Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+    <style>
+        :root { --sidebar-w: 280px; }
+        #app { min-height: 100vh; display: flex; }
+        
+        #login-screen { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; background: var(--bg-base); }
+        .login-card { width: 440px; padding: 4rem; text-align: center; }
+        
+        .sidebar { width: var(--sidebar-w); background: #fff; border-right: 1px solid var(--glass-border); display: flex; flex-direction: column; padding: 2.5rem 1.5rem; height: 100vh; position: fixed; box-shadow: 10px 0 30px rgba(0,0,0,0.02); z-index: 100; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-radius: 16px; color: var(--text-dim); text-decoration: none; font-size: 0.95rem; font-weight: 600; transition: all 0.3s; margin-bottom: 8px; cursor: pointer; border: none; background: none; width: 100%; text-align: left; }
+        .nav-link:hover { background: var(--bg-base); color: var(--primary); }
+        .nav-link.active { background: var(--primary); color: #fff; box-shadow: 0 10px 20px rgba(74, 103, 65, 0.2); }
+        
+        .main-content { margin-left: var(--sidebar-w); flex: 1; padding: 3.5rem; max-width: calc(100vw - var(--sidebar-w)); }
+        .page-header { margin-bottom: 3.5rem; }
+        .header-title h1 { font-size: 2.4rem; font-weight: 800; color: var(--text-main); letter-spacing: -1px; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem; margin-bottom: 3rem; }
+        .stat-box { padding: 2rem; border-radius: 28px; border: none; background: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
+        .stat-val { font-size: 2.6rem; font-weight: 900; color: var(--primary); margin: 12px 0 4px; }
+        .stat-label { font-size: 0.75rem; color: var(--text-dim); font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; }
+        
+        .data-card { background: #fff; border-radius: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.02); overflow: hidden; border: 1px solid var(--glass-border); }
+        .table-area { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 1.5rem; font-size: 0.7rem; font-weight: 800; color: var(--text-dim); text-transform: uppercase; border-bottom: 1px solid var(--bg-base); background: #fafafa; }
+        td { padding: 1.5rem; font-size: 0.92rem; border-bottom: 1px solid var(--bg-base); vertical-align: middle; }
+        
+        .badge { padding: 6px 14px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; }
+        .status-ok { background: rgba(96, 108, 56, 0.1); color: var(--success); }
+        .status-alert { background: rgba(188, 108, 37, 0.1); color: var(--error); }
+        
+        .page-view { display: none; }
+        .page-view.active { display: block; }
+        
+        .live-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 0.7rem; font-weight: 800; color: var(--primary); text-transform: uppercase; border: 1px solid var(--primary-light); padding: 4px 10px; border-radius: 100px; margin-left: 15px; }
+        .live-dot { width: 6px; height: 6px; background: var(--primary); border-radius: 50%; animation: pulse 2s infinite; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        @media (max-width: 1200px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+        
+        @media (max-width: 850px) {
+            #app { flex-direction: column; }
+            .sidebar { 
+                width: 100%; height: auto; position: sticky; top: 0;
+                flex-direction: row; overflow-x: auto; 
+                padding: 0.8rem; border-right: none; border-bottom: 1px solid var(--glass-border);
+                justify-content: flex-start; gap: 8px;
+                z-index: 1000;
+            }
+            .sidebar div { display: none !important; }
+            nav { display: flex !important; flex-direction: row !important; gap: 5px; flex: none !important; }
+            .nav-link { white-space: nowrap; padding: 10px 12px; margin-bottom: 0; font-size: 0.75rem; }
+            .main-content { margin-left: 0; padding: 1.25rem; max-width: 100%; }
+            .stats-grid { grid-template-columns: 1fr; gap: 1rem; }
+            #btn-logout { font-size: 0.7rem; padding: 8px 12px; margin-left: auto; width: auto; }
+            
+            .login-card { width: 90%; padding: 2.5rem 1.5rem; }
+            .enroll-grid { grid-template-columns: 1fr !important; gap: 1.5rem !important; }
+            .enroll-grid > div:first-child { aspect-ratio: 3/4 !important; border-radius: 20px !important; border-width: 2px !important; }
+            .page-header { margin-bottom: 1.5rem; }
+            .header-title h1 { font-size: 1.6rem; }
+            
+            .data-card { overflow-x: auto; border-radius: 20px; }
+            th, td { font-size: 0.75rem; padding: 1rem 0.75rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="premium-card login-card">
+        <div style="font-size: 2.5rem; margin-bottom: 1.5rem;">🌿</div>
+        <h2 style="font-size: 2rem; margin-bottom: 0.5rem;">Control Center</h2>
+        <p style="color: var(--text-dim); margin-bottom: 3rem; font-size: 0.95rem;">Security clearance required.</p>
+        
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <input type="text" id="username" class="input-premium" placeholder="Operator Identity">
+            <input type="password" id="password" class="input-premium" placeholder="Security Key">
+            <button class="btn-premium" id="btn-login" style="padding: 18px;">Initialize Session</button>
+            <p id="login-err" style="color: var(--error); font-size: 0.85rem; display: none;">Invalid Identity Sequence.</p>
+        </div>
+    </div>
+</div>
+
+<div id="app" style="display: none;">
+    <aside class="sidebar">
+        <div style="font-size: 1.8rem; font-weight: 800; margin-bottom: 3rem; color: var(--primary); display: flex; align-items: center; gap: 10px;">🛡️ <span>ExamSync</span></div>
+        <nav style="flex: 1;">
+            <button class="nav-link active" data-page="dashboard">System Telemetry</button>
+            <button class="nav-link" data-page="register">Profile Enrollment</button>
+            <button class="nav-link" data-page="students">Identity Registry</button>
+            <button class="nav-link" data-page="entries">Verification Logs</button>
+            <button class="nav-link" data-page="audit">Security Audit</button>
+        </nav>
+        <button class="btn-premium" style="background: var(--bg-base); color: var(--text-dim); box-shadow: none;" id="btn-logout">Terminate Session</button>
+    </aside>
+
+    <main class="main-content">
+        <!-- Telemetry View -->
+        <div class="page-view active" id="page-dashboard">
+            <div class="page-header">
+                <div class="header-title" style="display:flex; align-items:center;">
+                    <h1>System Telemetry</h1>
+                    <div class="live-indicator"><div class="live-dot"></div> Live Update ON</div>
+                </div>
+                <p style="color: var(--text-dim); margin-top: 5px;">Real-time operational metrics and network health.</p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Candidate Enrollment</div>
+                    <div class="stat-val" id="s-students">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Authorized Success</div>
+                    <div class="stat-val" id="s-verified">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Blocked Attempts</div>
+                    <div class="stat-val" id="s-rejected" style="color: var(--error);">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Network Traffic</div>
+                    <div class="stat-val" id="s-today">0</div>
+                </div>
+            </div>
+
+            <div class="data-card" style="padding: 2.5rem;">
+                <h3 style="margin-bottom: 1.5rem; font-weight: 800; color: var(--text-main);">Live Integrity Events</h3>
+                <div id="recent-events">Analyzing records...</div>
+            </div>
+        </div>
+
+        <!-- Enrollment View -->
+        <div class="page-view" id="page-register">
+            <div class="page-header">
+                <div class="header-title"><h1>Profile Enrollment</h1><p style="color: var(--text-dim);">Register a new candidate identity into the secure system.</p></div>
+            </div>
+            <div class="enroll-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem;">
+                <div style="position: relative; aspect-ratio: 16/9; background: #000; border-radius: 32px; overflow: hidden; border: 6px solid #fff; box-shadow: 0 20px 50px rgba(0,0,0,0.1);">
+                    <video id="reg-video" autoplay playsinline muted style="width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1);"></video>
+                    <button id="btn-switch-reg" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.9); border: none; padding: 8px 12px; border-radius: 100px; font-size: 0.75rem; font-weight: 700; cursor: pointer; z-index: 20;">🔄 Switch</button>
+                    <button class="btn-premium" id="btn-capture" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: auto;">Capture Biometrics</button>
+                    <canvas id="reg-canvas" style="display:none;"></canvas>
+                </div>
+                <div class="data-card" style="padding: 3rem;">
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <input type="text" id="reg-roll" class="input-premium" placeholder="Registration Number">
+                        <input type="text" id="reg-name" class="input-premium" placeholder="Full Legal Name">
+                        <input type="text" id="reg-exam" class="input-premium" placeholder="Examination Code">
+                        <div style="background: var(--bg-base); padding: 1.25rem; border-radius: 18px; font-size: 0.85rem; color: var(--text-dim); line-height: 1.6; border: 1px solid var(--glass-border);">
+                            <strong>Integrity Protocol:</strong> Identity data will be processed via RSA-2048 signing and AES-256-CBC encryption.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Identity Registry View -->
+        <div class="page-view" id="page-students">
+            <div class="page-header">
+                <div class="header-title" style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                    <h1>Identity Registry</h1>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="student-search" class="input-premium" placeholder="Search by name or roll..." style="padding: 10px 20px; width: 300px; font-size:0.85rem;">
+                    </div>
+                </div>
+            </div>
+            <div class="data-card">
+                <table class="table-area">
+                    <thead><tr><th>Roll ID</th><th>Name</th><th>Session</th><th>Enrollment Date</th><th>Status</th></tr></thead>
+                    <tbody id="students-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Verification Logs View -->
+        <div class="page-view" id="page-entries">
+            <div class="page-header">
+                <div class="header-title" style="display:flex; align-items:center;">
+                    <h1>Verification Logs</h1>
+                    <div class="live-indicator" id="live-verify-badge" style="display:none;"><div class="live-dot"></div> Live Tracking Active</div>
+                </div>
+                <p style="color: var(--text-dim); margin-top: 5px;">View and monitor real-time entry authorizations by session.</p>
+            </div>
+            <div class="data-card">
+                <div style="padding: 1.5rem; border-bottom: 1px solid var(--bg-base); display: flex; gap: 12px; background: #fafafa;">
+                    <input type="text" id="exam-filter" class="input-premium" placeholder="Enter Session Code to initiate tracking..." style="flex: 1; background: #fff;">
+                    <button class="btn-premium" onclick="loadEntries()">Load Session</button>
+                </div>
+                <table class="table-area">
+                    <thead><tr><th>Entry ID</th><th>Accuracy</th><th>Ledger Hash</th><th>Time</th><th>Auth Status</th></tr></thead>
+                    <tbody id="entries-table"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Security Audit View -->
+        <div class="page-view" id="page-audit">
+            <div class="page-header"><div class="header-title" style="display:flex; align-items:center;">
+                <h1>Security Audit</h1>
+                <div class="live-indicator"><div class="live-dot"></div> Live Update ON</div>
+            </div></div>
+            <div class="data-card">
+                <table class="table-area">
+                    <thead><tr><th>Event Type</th><th>Details</th><th>IP Source</th><th>Timestamp</th></tr></thead>
+                    <tbody id="audit-table"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+const API = 'https://indirect-proforeign-rochell.ngrok-free.dev/api';
+let TOKEN = localStorage.getItem('admin_token') || '';
+let LIVE_POLLING_INTERVAL = null;
+
+// Auth Logic
+document.getElementById('btn-login').addEventListener('click', async () => {
+    const u = document.getElementById('username').value;
+    const p = document.getElementById('password').value;
+    try {
+        const r = await fetch(`${API}/auth/admin/login`, {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({username:u, password:p})
+        });
+        if(r.ok) {
+            const d = await r.json();
+            TOKEN = d.access_token;
+            localStorage.setItem('admin_token', TOKEN);
+            location.reload();
+        } else { document.getElementById('login-err').style.display = 'block'; }
+    } catch(e) { console.error('Connection failed.'); }
+});
+
+if(TOKEN) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    initApp();
+}
+
+document.getElementById('btn-logout').addEventListener('click', () => { 
+    clearInterval(LIVE_POLLING_INTERVAL);
+    localStorage.clear(); 
+    location.reload(); 
+});
+
+// Navigation
+document.querySelectorAll('.nav-link').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-link').forEach(b=>b.classList.remove('active'));
+        document.querySelectorAll('.page-view').forEach(p=>p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`page-${btn.dataset.page}`).classList.add('active');
+        
+        // Initial load for specific pages
+        if(btn.dataset.page === 'students') loadStudents();
+        if(btn.dataset.page === 'audit') loadAudit();
+        if(btn.dataset.page === 'register') startRegCam();
+    });
+});
+
+async function apiFetch(path, opts={}) {
+    return fetch(`${API}${path}`, {
+        ...opts,
+        headers: { 'Authorization':`Bearer ${TOKEN}`, 'Content-Type':'application/json', ...(opts.headers||{}) }
+    });
+}
+
+// Global Refresh Logic (Telemetry, Audit, AND Verification Logs)
+async function refreshApplicationState() {
+    try {
+        // 1. Stats and Dashboard
+        const r = await apiFetch('/admin/dashboard');
+        if(r.ok) {
+            const d = await r.json();
+            document.getElementById('s-students').textContent = d.total_students ?? 0;
+            document.getElementById('s-verified').textContent = d.verified_total ?? 0;
+            document.getElementById('s-rejected').textContent = d.rejected_total ?? 0;
+            document.getElementById('s-today').textContent = d.entries_today ?? 0;
+        }
+        
+        // 2. Recent Events (Dashboard Card)
+        if(document.getElementById('page-dashboard').classList.contains('active')) {
+            const lr = await apiFetch('/admin/audit-logs?page_size=6');
+            if(lr.ok) {
+                const logs = await lr.json();
+                document.getElementById('recent-events').innerHTML = logs.map(l => `
+                    <div style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid #f5f5f5; animation: fadeIn 0.4s;">
+                        <div>
+                            <span class="badge ${l.event_type.includes('VERIFIED')?'status-ok':'status-alert'}" style="margin-right:12px; min-width:140px; display:inline-block; text-align:center;">${l.event_type}</span>
+                            <span style="font-size:0.95rem; font-weight:500; color:var(--text-main);">${l.description}</span>
+                        </div>
+                        <span style="font-size:0.8rem; color:var(--text-dim);">${new Date(l.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                `).join('') || 'Registry is empty.';
+            }
+        }
+
+        // 3. FEATURE: Live Verification Logs (If an exam ID is being tracked)
+        const examIdFilter = document.getElementById('exam-filter').value.trim();
+        if(examIdFilter) {
+            document.getElementById('live-verify-badge').style.display = 'inline-flex';
+            if(document.getElementById('page-entries').classList.contains('active')) {
+                loadEntries(); // Automatically refresh entries for the tracked exam
+            }
+        } else {
+            document.getElementById('live-verify-badge').style.display = 'none';
+        }
+
+        // 4. Audit Trail View
+        if(document.getElementById('page-audit').classList.contains('active')) {
+            loadAudit();
+        }
+    } catch(e) { console.error('Polled update failed.'); }
+}
+
+async function initApp() {
+    await refreshApplicationState();
+    LIVE_POLLING_INTERVAL = setInterval(refreshApplicationState, 4500); // Polling every 4.5 seconds
+}
+
+// Student Registry Search
+let searchTimeout;
+document.getElementById('student-search').addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        loadStudents(e.target.value);
+    }, 400);
+});
+
+async function loadStudents(searchQuery = '') {
+    const url = `/students/?page=1&size=50${searchQuery ? '&q='+encodeURIComponent(searchQuery) : ''}`;
+    const r = await apiFetch(url);
+    const data = await r.json();
+    document.getElementById('students-table').innerHTML = data.map(s => `
+        <tr>
+            <td><code>${s.roll_number}</code></td>
+            <td><strong>${s.full_name}</strong></td>
+            <td style="color:var(--text-dim); font-size:0.8rem;">${s.exam_id}</td>
+            <td style="color:var(--text-dim); font-size:0.8rem;">${new Date(s.registered_at).toLocaleDateString()}</td>
+            <td><span class="badge status-ok">ENROLLED</span></td>
+        </tr>
+    `).join('') || '<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-dim);">No matches.</td></tr>';
+}
+
+async function loadEntries() {
+    const exam = document.getElementById('exam-filter').value.trim();
+    if(!exam) return;
+    const r = await apiFetch(`/entry/entries?exam_id=${encodeURIComponent(exam)}&size=50`);
+    if(!r.ok) return;
+    const data = await r.json();
+    const explorerUrl = 'https://sepolia.etherscan.io/tx/';
+    document.getElementById('entries-table').innerHTML = data.map(e => `
+        <tr style="animation: fadeIn 0.4s;">
+            <td>${e.entry_id.substring(0,8)}</td>
+            <td style="color:var(--primary); font-weight:800;">${((e.match||0)*100).toFixed(1)}% Accuracy</td>
+            <td style="color:var(--accent); font-family:monospace; font-size:0.75rem;">
+                <a href="${explorerUrl}${e.tx_hash}" target="_blank" style="color: var(--primary); text-decoration: none;">
+                    ${(e.tx_hash||'').substring(0,24)}...
+                </a>
+            </td>
+            <td style="color:var(--text-dim); font-size:0.8rem;">${new Date(e.time).toLocaleTimeString()}</td>
+            <td><span class="badge status-ok">AUTHORIZED</span></td>
+        </tr>
+    `).join('') || '<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-dim);">No active entries for this session.</td></tr>';
+}
+
+async function loadAudit() {
+    const r = await apiFetch('/admin/audit-logs?page_size=50');
+    if(!r.ok) return;
+    const data = await r.json();
+    document.getElementById('audit-table').innerHTML = data.map(l => `
+        <tr style="animation: fadeIn 0.3s;">
+            <td><span class="badge" style="background:#f2f2f2; min-width:140px; display:inline-block; text-align:center;">${l.event_type}</span></td>
+            <td>${l.description}</td>
+            <td style="color:var(--text-dim); font-size:0.8rem;">${l.ip_address}</td>
+            <td style="color:var(--text-dim); font-size:0.8rem;">${new Date(l.timestamp).toLocaleString()}</td>
+        </tr>
+    `).join('');
+}
+
+let regFacingMode = 'user';
+let regStream = null;
+
+async function startRegCam() {
+    if(regStream) regStream.getTracks().forEach(t => t.stop());
+    try {
+        regStream = await navigator.mediaDevices.getUserMedia({ 
+            video: { width: 1280, height: 720, facingMode: regFacingMode } 
+        });
+        const video = document.getElementById('reg-video');
+        video.srcObject = regStream;
+        video.style.transform = (regFacingMode === 'user') ? 'scaleX(-1)' : 'scaleX(1)';
+    } catch(e) { console.error('Camera busy.'); }
+}
+
+document.getElementById('btn-switch-reg').addEventListener('click', () => {
+    regFacingMode = (regFacingMode === 'user') ? 'environment' : 'user';
+    startRegCam();
+});
+
+document.getElementById('btn-capture').addEventListener('click', async () => {
+    const roll = document.getElementById('reg-roll').value.trim();
+    const name = document.getElementById('reg-name').value.trim();
+    const exam = document.getElementById('reg-exam').value.trim();
+    if(!roll || !name || !exam) { alert('Identity fields required.'); return; }
+
+    const video = document.getElementById('reg-video');
+    const canvas = document.getElementById('reg-canvas');
+    const w = 640;
+    const h = 480;
+    canvas.width = w; 
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+
+    // Sync canvas mirroring with video style
+    if (video.style.transform.includes('scaleX(-1)')) {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+    }
+    
+    ctx.drawImage(video, 0, 0, w, h);
+    const b64 = canvas.toDataURL('image/jpeg').split(',')[1];
+
+    document.getElementById('btn-capture').disabled = true;
+    document.getElementById('btn-capture').textContent = 'Encrypting & Enrolling...';
+
+    try {
+        const r = await apiFetch('/students/register', {
+            method:'POST', body: JSON.stringify({roll_number:roll,full_name:name,exam_id:exam,face_image_b64:b64})
+        });
+        if(r.ok) {
+            alert('Identity Enrolled Successfully');
+            document.getElementById('reg-roll').value = '';
+            document.getElementById('reg-name').value = '';
+            loadStudents(); 
+        } else {
+            const err = await r.json();
+            alert('Error: ' + (err.detail?.message || err.detail));
+        }
+    } catch(e) { console.error('API Error'); }
+    finally {
+        document.getElementById('btn-capture').disabled = false;
+        document.getElementById('btn-capture').textContent = 'Capture Biometrics';
+    }
+});
+</script>
+</body>
+</html>
